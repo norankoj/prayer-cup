@@ -10,6 +10,7 @@ type Project = {
   name: string;
   type: string;
   target_minutes: number;
+  is_active: boolean; // 상태값 추가
 };
 
 type Participant = {
@@ -19,7 +20,6 @@ type Participant = {
   total_minutes: number;
 };
 
-// 테이블 정렬을 위한 타입
 type SortField = keyof Participant;
 type SortDirection = "asc" | "desc";
 
@@ -32,13 +32,11 @@ export default function ProjectDetailPage() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 명단 추가 폼 상태 (셀렉트 박스와 기타 직접 입력)
   const [groupSelect, setGroupSelect] = useState("오전반");
   const [customGroupName, setCustomGroupName] = useState("");
   const [namesText, setNamesText] = useState("");
   const [isInserting, setIsInserting] = useState(false);
 
-  // 테이블 정렬 상태
   const [sortField, setSortField] = useState<SortField>("group_name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -77,11 +75,33 @@ export default function ProjectDetailPage() {
     setIsLoading(false);
   };
 
+  const handleToggleStatus = async () => {
+    if (!project) return;
+
+    const newStatus = !project.is_active;
+    const confirmMessage = newStatus
+      ? "프로젝트를 다시 [진행중] 상태로 변경하시겠습니까?"
+      : "프로젝트를 [종료] 하시겠습니까? (종료해도 명단과 시간은 유지됩니다)";
+
+    if (!window.confirm(confirmMessage)) return;
+
+    const { error } = await supabase
+      .from("prayer_projects")
+      .update({ is_active: newStatus })
+      .eq("id", project.id);
+
+    if (error) {
+      console.error("상태 변경 에러:", error);
+      alert("상태 변경 중 오류가 발생했습니다.");
+    } else {
+      setProject({ ...project, is_active: newStatus });
+    }
+  };
+
   const handleBulkInsert = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!namesText.trim()) return alert("추가할 이름들을 입력해주세요.");
 
-    // 그룹명 최종 결정 (기타를 선택했다면 직접 입력한 텍스트 사용)
     const finalGroupName =
       groupSelect === "기타" ? customGroupName.trim() : groupSelect;
     if (!finalGroupName) return alert("그룹명을 입력해주세요.");
@@ -138,29 +158,23 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // 테이블 헤더 클릭 시 정렬 로직
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      // 이미 같은 필드로 정렬 중이면 방향만 반대로 전환
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
-      // 새로운 필드를 클릭하면 무조건 오름차순부터 시작
       setSortField(field);
       setSortDirection("asc");
     }
   };
 
-  // 정렬된 명단 데이터 생성 (원본 데이터는 건드리지 않음)
   const sortedParticipants = [...participants].sort((a, b) => {
     const aValue = a[sortField];
     const bValue = b[sortField];
-
     if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
     if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
     return 0;
   });
 
-  // 테이블 헤더 렌더링을 돕는 유틸리티 함수 (화살표 아이콘)
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field)
       return <span className="text-gray-300 ml-1">↕</span>;
@@ -206,6 +220,19 @@ export default function ProjectDetailPage() {
               <span className="text-xs font-bold px-2 py-1 rounded-md bg-blue-50 text-blue-700">
                 {project.type === "INDIVIDUAL" ? "개별형" : "공동체형"}
               </span>
+              <button
+                onClick={handleToggleStatus}
+                title="클릭하여 상태 변경하기"
+                className={`text-xs font-bold px-2 py-1 rounded-md transition-colors border ${
+                  project.is_active
+                    ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                    : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200"
+                }`}
+              >
+                {project.is_active
+                  ? "진행중 (클릭시 종료)"
+                  : "종료됨 (클릭시 진행)"}
+              </button>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
               {project.name}
@@ -220,7 +247,6 @@ export default function ProjectDetailPage() {
                 명단 일괄 추가
               </h2>
               <form onSubmit={handleBulkInsert} className="space-y-4">
-                {/* 💡 그룹명 선택 (Select + Input 조합) */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700">
                     그룹명 선택
@@ -235,7 +261,6 @@ export default function ProjectDetailPage() {
                     <option value="기타">기타 (직접 입력)</option>
                   </select>
 
-                  {/* '기타'를 선택했을 때만 나타나는 직접 입력 창 */}
                   {groupSelect === "기타" && (
                     <input
                       type="text"
@@ -291,7 +316,6 @@ export default function ProjectDetailPage() {
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-                  {/* 💡 정렬 가능한 테이블 헤더 */}
                   <table className="w-full text-left text-sm text-gray-600">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-700 select-none">
                       <tr>
@@ -319,7 +343,6 @@ export default function ProjectDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {/* 💡 정렬된 배열을 매핑합니다 */}
                       {sortedParticipants.map((p) => (
                         <tr
                           key={p.id}
