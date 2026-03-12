@@ -1,10 +1,18 @@
 // app/page.tsx
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
   const router = useRouter();
+
+  useEffect(() => {
+    const savedUrl = localStorage.getItem("my_prayer_cup_url");
+    if (savedUrl) {
+      router.replace(savedUrl);
+    }
+  }, [router]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-neutral-50 p-6 text-center space-y-6">
@@ -13,13 +21,12 @@ export default function Home() {
           <path d="M12 21.5a7.5 7.5 0 01-7.5-7.5c0-4.14 5.3-10.3 6.64-11.75a1.15 1.15 0 011.72 0C14.2 3.7 19.5 9.86 19.5 14a7.5 7.5 0 01-7.5 7.5z" />
         </svg>
       </div>
-
       <div>
         <h1 className="text-3xl font-extrabold text-neutral-800 tracking-tight">
           기도의 잔
         </h1>
         <p className="text-neutral-500 mt-2 font-medium break-keep">
-          전달받으신 프로젝트 전용 링크(URL)를 통해 접속해주세요.
+          로딩 중이거나, 전달받으신 전용 링크를 통해 접속해주세요.
         </p>
       </div>
 

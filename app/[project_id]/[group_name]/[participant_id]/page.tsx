@@ -28,12 +28,15 @@ export default function ParticipantPrayerCup() {
   const [targetMinutes, setTargetMinutes] = useState(2400);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 기도의 잔 UI 상태
   const [minutes, setMinutes] = useState(0);
-  const [selectedValue, setSelectedValue] = useState(10);
+  const [selectedValue, setSelectedValue] = useState(60); // 기본값 1시간
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isPouring, setIsPouring] = useState(false);
   const [animType, setAnimType] = useState("single-drop");
 
+  // 고정 상태 및 모달 상태
+  const [isFixed, setIsFixed] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
 
@@ -41,9 +44,17 @@ export default function ParticipantPrayerCup() {
   const isProcessingRef = useRef(false);
 
   useEffect(() => {
-    if (participantId) fetchParticipantData();
+    if (participantId) {
+      fetchParticipantData();
+
+      const savedUrl = localStorage.getItem("my_prayer_cup_url");
+      if (savedUrl === window.location.pathname) {
+        setIsFixed(true);
+      }
+    }
   }, [participantId]);
 
+  // DB에서 데이터 불러오기
   const fetchParticipantData = async () => {
     const { data: pData, error: pError } = await supabase
       .from("prayer_participants")
@@ -65,10 +76,7 @@ export default function ParticipantPrayerCup() {
       .eq("id", projectId)
       .single();
 
-    if (projData) {
-      setTargetMinutes(projData.target_minutes);
-    }
-
+    if (projData) setTargetMinutes(projData.target_minutes);
     setIsLoading(false);
   };
 
@@ -78,6 +86,18 @@ export default function ParticipantPrayerCup() {
     if (h > 0 && m > 0) return `${h}시간 ${m}분`;
     if (h > 0) return `${h}시간`;
     return `${m}분`;
+  };
+
+  const toggleFixCup = () => {
+    if (isFixed) {
+      localStorage.removeItem("my_prayer_cup_url");
+      setIsFixed(false);
+      alert("고정이 해제되었습니다.");
+    } else {
+      localStorage.setItem("my_prayer_cup_url", window.location.pathname);
+      setIsFixed(true);
+      alert("이 잔이 내 잔으로 고정되었습니다!");
+    }
   };
 
   const handlePour = async () => {
@@ -115,13 +135,13 @@ export default function ParticipantPrayerCup() {
     }
 
     setAnimType(currentAnimType);
-
     const nextMinutes = Math.min(minutes + selectedValue, targetMinutes);
 
     setTimeout(() => {
       setMinutes(nextMinutes);
     }, fillDelay);
 
+    // DB 업데이트
     await Promise.all([
       supabase.from("prayer_logs").insert([
         {
@@ -301,9 +321,23 @@ export default function ParticipantPrayerCup() {
           </button>
 
           <div className="space-y-1 ml-8">
-            <h1 className="text-2xl font-bold text-neutral-800 tracking-tight">
-              {participantName}님의 잔
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-neutral-800 tracking-tight">
+                {participantName}님의 잔
+              </h1>
+              <button
+                onClick={toggleFixCup}
+                className={`p-1 rounded-full transition-colors ${isFixed ? "text-yellow-400" : "text-gray-300 hover:text-gray-400"}`}
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                </svg>
+              </button>
+            </div>
             <p className="text-sm text-neutral-500 font-medium">
               목표: {formatTime(targetMinutes)} ({formatTime(minutes)} /{" "}
               {formatTime(targetMinutes)})
@@ -403,12 +437,10 @@ export default function ParticipantPrayerCup() {
             </div>
           )}
 
-          {/* 💡 찰랑거리는 물 (Water) 구현 */}
           <div
             className="absolute bottom-0 left-0 w-full bg-[#54a2ff] transition-all duration-1000 ease-in-out z-0"
             style={{ height: `${percentage}%` }}
           >
-            {/* 상단 찰랑이는 파도 레이어 */}
             {percentage > 0 && (
               <div className="absolute top-0 left-0 w-[200%] h-[16px] -mt-[15px] overflow-hidden">
                 <svg
@@ -416,13 +448,11 @@ export default function ParticipantPrayerCup() {
                   viewBox="0 0 800 50"
                   preserveAspectRatio="none"
                 >
-                  {/* 뒤쪽 옅은 파도 */}
                   <path
                     d="M0,20 Q100,0 200,20 T400,20 T600,20 T800,20 L800,50 L0,50 Z"
                     fill="#93c5fd"
                     opacity="0.6"
                   />
-                  {/* 앞쪽 진한 파도 */}
                   <path
                     d="M0,20 Q100,40 200,20 T400,20 T600,20 T800,20 L800,50 L0,50 Z"
                     fill="#54a2ff"
