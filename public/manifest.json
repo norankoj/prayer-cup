@@ -1,0 +1,17 @@
+{
+  "name": "나의 기도의 잔",
+  "short_name": "기도의 잔",
+  "description": "기도를 모아 기도의 잔을 채워주세요.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#54a2ff",
+  "icons": [
+    {
+      "src": "/thumbnail.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
