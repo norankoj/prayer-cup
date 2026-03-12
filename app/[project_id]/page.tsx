@@ -22,7 +22,6 @@ export default function ProjectEntryPage() {
 
   useEffect(() => {
     if (projectId) {
-      // 💡 [핵심 추가] 내 잔으로 고정해둔 주소가 있고, 그 주소가 '현재 프로젝트'에 속해있다면 바로 넘겨줍니다!
       const savedUrl = localStorage.getItem("my_prayer_cup_url");
       if (savedUrl && savedUrl.includes(projectId)) {
         router.replace(savedUrl);
