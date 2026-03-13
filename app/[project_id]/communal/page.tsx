@@ -25,9 +25,10 @@ export default function CommunalPrayerCup() {
   const [projectName, setProjectName] = useState("");
   const [targetMinutes, setTargetMinutes] = useState(2400);
   const [isLoading, setIsLoading] = useState(true);
+  const [isActive, setIsActive] = useState(true);
 
   const [minutes, setMinutes] = useState(0);
-  const [selectedValue, setSelectedValue] = useState(10);
+  const [selectedValue, setSelectedValue] = useState(60);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isPouring, setIsPouring] = useState(false);
   const [animType, setAnimType] = useState("single-drop");
@@ -43,10 +44,9 @@ export default function CommunalPrayerCup() {
   }, [projectId]);
 
   const fetchCommunalData = async () => {
-    // 1. 프로젝트 정보 불러오기
     const { data: projData, error: projError } = await supabase
       .from("prayer_projects")
-      .select("name, target_minutes, type")
+      .select("name, target_minutes, type, is_active")
       .eq("id", projectId)
       .single();
 
@@ -57,8 +57,8 @@ export default function CommunalPrayerCup() {
 
     setProjectName(projData.name);
     setTargetMinutes(projData.target_minutes);
+    setIsActive(projData.is_active);
 
-    // 2. 공동체 전체의 누적 시간 계산하기 (prayer_logs 테이블에서 해당 프로젝트의 모든 시간을 더함)
     const { data: logsData } = await supabase
       .from("prayer_logs")
       .select("added_minutes")
@@ -81,7 +81,12 @@ export default function CommunalPrayerCup() {
   };
 
   const handlePour = async () => {
-    if (isProcessingRef.current || isModalOpen || minutes >= targetMinutes)
+    if (
+      isProcessingRef.current ||
+      isModalOpen ||
+      minutes >= targetMinutes ||
+      !isActive
+    )
       return;
 
     isProcessingRef.current = true;
@@ -108,10 +113,6 @@ export default function CommunalPrayerCup() {
       currentAnimType = "double-drop";
       fillDelay = 400;
       totalDuration = 900;
-    } else {
-      currentAnimType = "single-drop";
-      fillDelay = 400;
-      totalDuration = 700;
     }
 
     setAnimType(currentAnimType);
@@ -121,7 +122,6 @@ export default function CommunalPrayerCup() {
       setMinutes(nextMinutes);
     }, fillDelay);
 
-    // 💡 DB에 실제 데이터 저장 (participant_id는 null로 저장됩니다)
     await supabase.from("prayer_logs").insert([
       {
         project_id: projectId,
@@ -139,7 +139,6 @@ export default function CommunalPrayerCup() {
           `할렐루야! 우리 공동체가 기도의 잔 ${formatTime(targetMinutes)}을 모두 채웠습니다! 🎉`,
         );
         setIsModalOpen(true);
-
         const duration = 3 * 1000;
         const animationEnd = Date.now() + duration;
         const defaults = {
@@ -154,18 +153,16 @@ export default function CommunalPrayerCup() {
         const interval: any = setInterval(function () {
           const timeLeft = animationEnd - Date.now();
           if (timeLeft <= 0) return clearInterval(interval);
-          const particleCount = 50 * (timeLeft / duration);
           const colors = ["#54a2ff", "#93c5fd", "#ffffff", "#fcd34d"];
-
           confetti({
             ...defaults,
-            particleCount,
+            particleCount: 50 * (timeLeft / duration),
             origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
             colors,
           });
           confetti({
             ...defaults,
-            particleCount,
+            particleCount: 50 * (timeLeft / duration),
             origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
             colors,
           });
@@ -180,13 +177,13 @@ export default function CommunalPrayerCup() {
   };
 
   const handleReset = async () => {
+    if (!isActive) return;
     if (
       window.confirm(
         "정말로 공동체의 잔을 초기화하시겠습니까? 기록이 모두 사라집니다.",
       )
     ) {
       setMinutes(0);
-      // 프로젝트의 모든 로그 기록을 삭제하여 누적 시간을 0으로 만듦
       await supabase.from("prayer_logs").delete().eq("project_id", projectId);
       alert("초기화가 완료되었습니다.");
     }
@@ -202,7 +199,6 @@ export default function CommunalPrayerCup() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-neutral-50 p-4 sm:p-6 relative overflow-hidden">
-      {/* 팝업(모달) UI */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm transition-opacity">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs text-center space-y-4 animate-in fade-in zoom-in duration-200">
@@ -226,27 +222,19 @@ export default function CommunalPrayerCup() {
               <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-2">
                 <svg
                   className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
+                  fill="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="3"
-                    d="M5 13l4 4L19 7"
-                  ></path>
+                  <path d="M12 21.5a7.5 7.5 0 01-7.5-7.5c0-4.14 5.3-10.3 6.64-11.75a1.15 1.15 0 011.72 0C14.2 3.7 19.5 9.86 19.5 14a7.5 7.5 0 01-7.5 7.5z" />
                 </svg>
               </div>
             )}
-
             <h3 className="text-lg font-bold text-neutral-800">
               {minutes >= targetMinutes ? "목표 달성!" : "채우기 완료"}
             </h3>
             <p className="text-neutral-600 font-medium pb-2 break-keep">
               {modalMessage}
             </p>
-
             <button
               onClick={() => setIsModalOpen(false)}
               className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors"
@@ -258,6 +246,7 @@ export default function CommunalPrayerCup() {
       )}
 
       <style>{`
+        @keyframes wave { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } } .animate-wave-slow { animation: wave 6s linear infinite; } .animate-wave-fast { animation: wave 2s linear infinite; }
         @keyframes drop { 0% { top: -15%; opacity: 0; transform: scale(0.8); } 20% { top: 10%; opacity: 1; transform: scaleY(1.2) scaleX(0.9); } 70% { top: 75%; opacity: 1; transform: scaleY(1.1) scaleX(0.95); } 100% { top: 95%; opacity: 0; transform: scaleY(0.5) scaleX(1.5); } }
         @keyframes multi-drop { 0% { top: -10%; opacity: 0; transform: scale(0.7); } 15% { top: 5%; opacity: 1; transform: scaleY(1.2) scaleX(0.8); } 85% { top: 85%; opacity: 1; transform: scaleY(1.1) scaleX(0.9); } 100% { top: 95%; opacity: 0; transform: scaleY(0.4) scaleX(1.3); } }
         @keyframes stream { 0% { top: -20%; height: 0%; opacity: 0.8; } 30% { top: -10%; height: 110%; opacity: 1; } 70% { top: -10%; height: 110%; opacity: 1; } 100% { top: 100%; height: 0%; opacity: 0; } }
@@ -267,13 +256,12 @@ export default function CommunalPrayerCup() {
       `}</style>
 
       <div className="max-w-sm w-full bg-white rounded-[2rem] shadow-sm border border-neutral-100 p-6 flex flex-col gap-6">
-        {/* 헤더 */}
-        <div className="flex justify-between items-start relative">
-          <div className="space-y-1">
+        <div className="flex justify-between items-start gap-4 relative">
+          <div className="space-y-1 flex-1 min-w-0">
             <span className="text-xs font-bold text-purple-500 tracking-widest bg-purple-50 px-3 py-1 rounded-full inline-block mb-1">
               공동체 기도의 잔
             </span>
-            <h1 className="text-2xl font-bold text-neutral-800 tracking-tight break-keep">
+            <h1 className="text-2xl font-bold text-neutral-800 tracking-tight break-keep leading-tight">
               {projectName}
             </h1>
             <p className="text-sm text-neutral-500 font-medium mt-1">
@@ -281,15 +269,16 @@ export default function CommunalPrayerCup() {
               {formatTime(targetMinutes)})
             </p>
           </div>
-          <button
-            onClick={handleReset}
-            className="text-xs font-semibold text-neutral-400 hover:text-red-500 transition-colors px-2 py-1 bg-neutral-50 hover:bg-red-50 rounded-md mt-1"
-          >
-            초기화
-          </button>
+          {isActive && (
+            <button
+              onClick={handleReset}
+              className="shrink-0 text-xs font-semibold text-neutral-400 hover:text-red-500 transition-colors px-2 py-1 bg-neutral-50 hover:bg-red-50 rounded-md mt-1"
+            >
+              초기화
+            </button>
+          )}
         </div>
 
-        {/* 잔 (Cup) UI */}
         <div className="relative w-48 h-64 mx-auto border-4 border-neutral-200 rounded-b-[2.5rem] rounded-t-lg overflow-hidden bg-neutral-50/50 shadow-inner">
           {isPouring && (
             <div className="absolute left-0 top-0 w-full h-full z-10 pointer-events-none overflow-hidden">
@@ -373,12 +362,29 @@ export default function CommunalPrayerCup() {
               )}
             </div>
           )}
-
           <div
-            className="absolute bottom-0 left-0 w-full bg-blue-400 transition-all duration-1000 ease-in-out z-0"
+            className="absolute bottom-0 left-0 w-full bg-[#54a2ff] transition-all duration-1000 ease-in-out z-0"
             style={{ height: `${percentage}%` }}
           >
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-blue-300 opacity-60"></div>
+            {percentage > 0 && (
+              <div className="absolute top-0 left-0 w-[200%] h-[16px] -mt-[15px] overflow-hidden">
+                <svg
+                  className={`w-full h-full ${isPouring ? "animate-wave-fast" : "animate-wave-slow"}`}
+                  viewBox="0 0 800 50"
+                  preserveAspectRatio="none"
+                >
+                  <path
+                    d="M0,20 Q100,0 200,20 T400,20 T600,20 T800,20 L800,50 L0,50 Z"
+                    fill="#93c5fd"
+                    opacity="0.6"
+                  />
+                  <path
+                    d="M0,20 Q100,40 200,20 T400,20 T600,20 T800,20 L800,50 L0,50 Z"
+                    fill="#54a2ff"
+                  />
+                </svg>
+              </div>
+            )}
           </div>
         </div>
 
@@ -387,20 +393,73 @@ export default function CommunalPrayerCup() {
           <span className="text-2xl text-blue-400">%</span>
         </div>
 
-        {/* 컨트롤 영역 */}
-        <div className="relative flex gap-3 mt-2">
-          <div className="relative w-3/5">
+        {/* 💡 종료 시 컨트롤 영역 자물쇠 뷰 */}
+        {!isActive ? (
+          <div className="mt-2 p-4 bg-gray-50 rounded-xl text-center border border-gray-200">
+            <p className="text-gray-700 font-bold">
+              프로젝트가 종료되었습니다 🔒
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              더 이상 잔을 채울 수 없습니다.
+            </p>
+          </div>
+        ) : (
+          <div className="relative flex gap-3 mt-2">
+            <div className="relative w-3/5">
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                disabled={isModalOpen}
+                className="w-full h-12 px-4 text-left bg-white border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all flex justify-between items-center shadow-sm"
+              >
+                <span className="text-neutral-700 font-medium whitespace-nowrap overflow-hidden text-ellipsis text-base">
+                  {
+                    TIME_OPTIONS.find((opt) => opt.value === selectedValue)
+                      ?.label
+                  }
+                </span>
+                <svg
+                  className={`w-4 h-4 text-neutral-400 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M19 9l-7 7-7-7"
+                  ></path>
+                </svg>
+              </button>
+              {isDropdownOpen && (
+                <div className="absolute bottom-full mb-2 left-0 w-full bg-white border border-blue-400 rounded-lg shadow-lg z-50 overflow-hidden">
+                  <ul className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
+                    {TIME_OPTIONS.map((option) => (
+                      <li key={option.value}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedValue(option.value);
+                            setIsDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-base transition-colors ${selectedValue === option.value ? "bg-blue-600 text-white font-bold" : "text-neutral-700 hover:bg-blue-100"}`}
+                        >
+                          {option.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
             <button
-              type="button"
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              disabled={isModalOpen}
-              className="w-full h-12 px-4 text-left bg-white border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all flex justify-between items-center shadow-sm disabled:opacity-50"
+              onClick={handlePour}
+              disabled={isPouring || isModalOpen}
+              className="flex-1 h-12 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 active:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20"
             >
-              <span className="text-neutral-700 font-medium whitespace-nowrap overflow-hidden text-ellipsis text-base">
-                {TIME_OPTIONS.find((opt) => opt.value === selectedValue)?.label}
-              </span>
               <svg
-                className={`w-4 h-4 text-neutral-400 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
+                className="w-5 h-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -408,53 +467,14 @@ export default function CommunalPrayerCup() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
+                  strokeWidth="2.5"
+                  d="M12 3v13m0 0l-4-4m4 4l4-4"
                 ></path>
               </svg>
+              채우기
             </button>
-            {isDropdownOpen && (
-              <div className="absolute bottom-full mb-2 left-0 w-full bg-white border border-blue-400 rounded-lg shadow-lg z-50 overflow-hidden">
-                <ul className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
-                  {TIME_OPTIONS.map((option) => (
-                    <li key={option.value}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedValue(option.value);
-                          setIsDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-2.5 text-base transition-colors ${selectedValue === option.value ? "bg-blue-600 text-white font-bold" : "text-neutral-700 hover:bg-blue-100"}`}
-                      >
-                        {option.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
-          <button
-            onClick={handlePour}
-            disabled={isPouring || isModalOpen}
-            className="flex-1 h-12 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 active:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 text-sm sm:text-base disabled:cursor-not-allowed"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2.5"
-                d="M12 3v13m0 0l-4-4m4 4l4-4"
-              ></path>
-            </svg>
-            채우기
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
