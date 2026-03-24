@@ -1,4 +1,4 @@
-// app/admin/page.tsx //
+// app/admin/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,9 +22,14 @@ export default function AdminPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // 새 프로젝트 폼 상태
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState("INDIVIDUAL");
   const [newTargetHours, setNewTargetHours] = useState(40);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editTargetHours, setEditTargetHours] = useState(40);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +37,7 @@ export default function AdminPage() {
     const friendPw = process.env.NEXT_PUBLIC_FRIEND_PASSWORD;
 
     if (passwordInput === myPw || passwordInput === friendPw) {
-      setAdminKey(passwordInput); // 입력한 비밀번호를 식별키로 사용
+      setAdminKey(passwordInput);
       setIsAuthenticated(true);
     } else {
       alert("비밀번호가 틀렸습니다.");
@@ -50,7 +55,7 @@ export default function AdminPage() {
     const { data, error } = await supabase
       .from("prayer_projects")
       .select("*")
-      .eq("admin_key", adminKey) // 💡 내 프로젝트만 필터링!
+      .eq("admin_key", adminKey)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -84,6 +89,64 @@ export default function AdminPage() {
       alert("새 프로젝트가 생성되었습니다!");
       setNewName("");
       setNewTargetHours(40);
+      fetchProjects();
+    }
+    setIsLoading(false);
+  };
+
+  // 1. 수정 모드 켜기
+  const startEditing = (project: Project) => {
+    setEditingId(project.id);
+    setEditName(project.name);
+    setEditTargetHours(project.target_minutes / 60);
+  };
+
+  // 2. 수정 내용 저장하기
+  const handleUpdateProject = async (id: string) => {
+    if (!editName.trim()) return alert("프로젝트 이름을 입력해주세요.");
+    setIsLoading(true);
+
+    const { error } = await supabase
+      .from("prayer_projects")
+      .update({
+        name: editName,
+        target_minutes: editTargetHours * 60,
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("프로젝트 수정 에러:", error);
+      alert("수정 중 오류가 발생했습니다.");
+    } else {
+      setEditingId(null); // 수정 모드 종료
+      fetchProjects(); // 목록 새로고침
+    }
+    setIsLoading(false);
+  };
+
+  const handleDeleteProject = async (id: string, name: string) => {
+    if (
+      !window.confirm(
+        `정말로 '${name}' 프로젝트를 삭제하시겠습니까?\n\n⚠️ 주의: 이 프로젝트에 속한 모든 명단과 사람들의 기도 시간 기록이 함께 삭제되며 절대 복구할 수 없습니다.`,
+      )
+    )
+      return;
+
+    setIsLoading(true);
+
+    // 에러를 방지하기 위해 꼬리(기록, 명단)부터 지우고 머리(프로젝트)를 지웁니다.
+    await supabase.from("prayer_logs").delete().eq("project_id", id);
+    await supabase.from("prayer_participants").delete().eq("project_id", id);
+    const { error } = await supabase
+      .from("prayer_projects")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("프로젝트 삭제 에러:", error);
+      alert("삭제 중 오류가 발생했습니다.");
+    } else {
+      alert("성공적으로 삭제되었습니다.");
       fetchProjects();
     }
     setIsLoading(false);
@@ -219,53 +282,121 @@ export default function AdminPage() {
                 {projects.map((project) => (
                   <div
                     key={project.id}
-                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:border-blue-300 transition-colors"
+                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between sm:items-start gap-4 hover:border-blue-300 transition-colors"
                   >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`text-xs font-bold px-2 py-1 rounded-md ${project.type === "INDIVIDUAL" ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"}`}
-                        >
-                          {project.type === "INDIVIDUAL"
-                            ? "개별형"
-                            : "공동체형"}
-                        </span>
-                        <span
-                          className={`text-xs font-bold px-2 py-1 rounded-md ${project.is_active ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}
-                        >
-                          {project.is_active ? "진행중" : "종료됨"}
-                        </span>
+                    {/* 수정 모드일 때 보여질 UI */}
+                    {editingId === project.id ? (
+                      <div className="flex-1 space-y-3 w-full">
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-500 font-semibold">
+                            프로젝트 이름 수정
+                          </label>
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="w-full h-10 px-3 border border-blue-400 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800 font-bold bg-blue-50/30"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-500 font-semibold">
+                            목표 시간 수정 (시간)
+                          </label>
+                          <input
+                            type="number"
+                            value={editTargetHours}
+                            onChange={(e) =>
+                              setEditTargetHours(Number(e.target.value))
+                            }
+                            className="w-full h-10 px-3 border border-blue-400 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800 bg-blue-50/30"
+                          />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={() => handleUpdateProject(project.id)}
+                            className="flex-1 h-10 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            저장하기
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="px-4 h-10 bg-gray-100 text-gray-600 text-sm font-bold rounded-lg hover:bg-gray-200 transition-colors"
+                          >
+                            취소
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      /* 기본 보기 모드 UI */
+                      <>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className={`text-xs font-bold px-2 py-1 rounded-md ${project.type === "INDIVIDUAL" ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"}`}
+                            >
+                              {project.type === "INDIVIDUAL"
+                                ? "개별형"
+                                : "공동체형"}
+                            </span>
+                            <span
+                              className={`text-xs font-bold px-2 py-1 rounded-md ${project.is_active ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}
+                            >
+                              {project.is_active ? "진행중" : "종료됨"}
+                            </span>
+                          </div>
 
-                      <div className="flex items-center gap-3 mt-1.5 mb-1">
-                        <h3 className="text-lg font-bold text-gray-800 leading-none">
-                          {project.name}
-                        </h3>
-                        <a
-                          href={`/${project.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-semibold text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors flex items-center gap-1"
-                          title="새 창으로 사용자 페이지 열기"
-                        >
-                          사용자 페이지 ↗
-                        </a>
-                      </div>
-                      <p className="text-sm text-gray-500">
-                        목표: {project.target_minutes / 60}시간
-                      </p>
-                    </div>
+                          <div className="flex items-center gap-3 mt-1.5 mb-1">
+                            <h3 className="text-lg font-bold text-gray-800 leading-none">
+                              {project.name}
+                            </h3>
+                            <a
+                              href={`/${project.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-semibold text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                              title="새 창으로 사용자 페이지 열기"
+                            >
+                              사용자 페이지 ↗
+                            </a>
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            목표: {project.target_minutes / 60}시간
+                          </p>
+                        </div>
 
-                    <button
-                      onClick={() =>
-                        (window.location.href = `/admin/${project.id}`)
-                      }
-                      className="h-10 px-4 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-sm font-bold hover:bg-gray-100 transition-colors"
-                    >
-                      {project.type === "INDIVIDUAL"
-                        ? "명단 관리 / 통계 ➔"
-                        : "통계 보기 ➔"}
-                    </button>
+                        <div className="flex flex-col gap-2 shrink-0 sm:items-end w-full sm:w-auto">
+                          <button
+                            onClick={() =>
+                              (window.location.href = `/admin/${project.id}`)
+                            }
+                            className="h-10 px-4 w-full sm:w-auto bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-sm font-bold hover:bg-gray-100 transition-colors"
+                          >
+                            {project.type === "INDIVIDUAL"
+                              ? "명단 관리 / 통계 ➔"
+                              : "통계 보기 ➔"}
+                          </button>
+
+                          <div className="flex items-center gap-3 px-1 mt-1 justify-end">
+                            <button
+                              onClick={() => startEditing(project)}
+                              className="text-xs text-gray-400 hover:text-blue-500 font-semibold transition-colors"
+                            >
+                              이름/시간 수정
+                            </button>
+                            <span className="text-gray-300 text-xs">|</span>
+                            <button
+                              onClick={() =>
+                                handleDeleteProject(project.id, project.name)
+                              }
+                              className="text-xs text-gray-400 hover:text-red-500 font-semibold transition-colors"
+                            >
+                              프로젝트 삭제
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
