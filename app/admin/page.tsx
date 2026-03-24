@@ -11,11 +11,13 @@ type Project = {
   target_minutes: number;
   is_active: boolean;
   created_at: string;
+  admin_key: string;
 };
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
+  const [adminKey, setAdminKey] = useState("");
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,19 +28,29 @@ export default function AdminPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
+    const myPw = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    const friendPw = process.env.NEXT_PUBLIC_FRIEND_PASSWORD;
+
+    if (passwordInput === myPw || passwordInput === friendPw) {
+      setAdminKey(passwordInput); // 입력한 비밀번호를 식별키로 사용
       setIsAuthenticated(true);
-      fetchProjects();
     } else {
       alert("비밀번호가 틀렸습니다.");
     }
   };
+
+  useEffect(() => {
+    if (isAuthenticated && adminKey) {
+      fetchProjects();
+    }
+  }, [isAuthenticated, adminKey]);
 
   const fetchProjects = async () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("prayer_projects")
       .select("*")
+      .eq("admin_key", adminKey) // 💡 내 프로젝트만 필터링!
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -61,6 +73,7 @@ export default function AdminPage() {
         name: newName,
         type: newType,
         target_minutes: targetMinutes,
+        admin_key: adminKey,
       },
     ]);
 
@@ -86,7 +99,7 @@ export default function AdminPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-800">관리자 로그인</h1>
             <p className="text-sm text-gray-500 mt-1">
-              비밀번호를 입력해주세요.
+              부여받은 관리자 비밀번호를 입력해주세요.
             </p>
           </div>
           <input
@@ -116,11 +129,14 @@ export default function AdminPage() {
               기도의 잔 대시보드
             </h1>
             <p className="text-gray-500 mt-1">
-              프로젝트를 생성하고 관리하세요.
+              내 프로젝트를 생성하고 관리하세요.
             </p>
           </div>
           <button
-            onClick={() => setIsAuthenticated(false)}
+            onClick={() => {
+              setIsAuthenticated(false);
+              setAdminKey("");
+            }}
             className="text-sm text-gray-400 hover:text-gray-600 font-medium"
           >
             로그아웃
@@ -221,7 +237,6 @@ export default function AdminPage() {
                         </span>
                       </div>
 
-                      {/* 💡 사용자 페이지 바로가기 버튼 추가됨! */}
                       <div className="flex items-center gap-3 mt-1.5 mb-1">
                         <h3 className="text-lg font-bold text-gray-800 leading-none">
                           {project.name}
@@ -236,7 +251,6 @@ export default function AdminPage() {
                           사용자 페이지 ↗
                         </a>
                       </div>
-
                       <p className="text-sm text-gray-500">
                         목표: {project.target_minutes / 60}시간
                       </p>
