@@ -33,6 +33,7 @@ export default function CommunalPrayerCup() {
   const [isPouring, setIsPouring] = useState(false);
   const [animType, setAnimType] = useState("single-drop");
 
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
 
@@ -90,6 +91,7 @@ export default function CommunalPrayerCup() {
       return;
 
     isProcessingRef.current = true;
+    setIsConfirmOpen(false);
     setIsDropdownOpen(false);
     setIsPouring(true);
 
@@ -199,6 +201,36 @@ export default function CommunalPrayerCup() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-neutral-50 p-4 sm:p-6 relative overflow-hidden">
+      {isConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs text-center space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-2">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.5a7.5 7.5 0 01-7.5-7.5c0-4.14 5.3-10.3 6.64-11.75a1.15 1.15 0 011.72 0C14.2 3.7 19.5 9.86 19.5 14a7.5 7.5 0 01-7.5 7.5z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-neutral-800">기도 시간 채우기</h3>
+            <p className="text-neutral-600 font-medium pb-2 break-keep">
+              {formatTime(selectedValue)}을 채우시겠습니까?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsConfirmOpen(false)}
+                className="flex-1 py-3 bg-neutral-100 text-neutral-600 rounded-xl font-bold hover:bg-neutral-200 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handlePour}
+                className="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors"
+              >
+                채우기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm transition-opacity">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs text-center space-y-4 animate-in fade-in zoom-in duration-200">
@@ -409,7 +441,7 @@ export default function CommunalPrayerCup() {
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                disabled={isModalOpen}
+                disabled={isModalOpen || isConfirmOpen}
                 className="w-full h-12 px-4 text-left bg-white border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all flex justify-between items-center shadow-sm"
               >
                 <span className="text-neutral-700 font-medium whitespace-nowrap overflow-hidden text-ellipsis text-base">
@@ -454,8 +486,8 @@ export default function CommunalPrayerCup() {
               )}
             </div>
             <button
-              onClick={handlePour}
-              disabled={isPouring || isModalOpen}
+              onClick={() => setIsConfirmOpen(true)}
+              disabled={isPouring || isModalOpen || isConfirmOpen}
               className="flex-1 h-12 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 active:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20"
             >
               <svg
