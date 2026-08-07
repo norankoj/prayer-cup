@@ -26,6 +26,8 @@ export default function CommunalPrayerCup() {
   const [targetMinutes, setTargetMinutes] = useState(2400);
   const [isLoading, setIsLoading] = useState(true);
   const [isActive, setIsActive] = useState(true);
+  const [prayerTopic, setPrayerTopic] = useState("");
+  const [isPrayerTopicOpen, setIsPrayerTopicOpen] = useState(false);
 
   const [minutes, setMinutes] = useState(0);
   const [selectedValue, setSelectedValue] = useState(60);
@@ -47,7 +49,7 @@ export default function CommunalPrayerCup() {
   const fetchCommunalData = async () => {
     const { data: projData, error: projError } = await supabase
       .from("prayer_projects")
-      .select("name, target_minutes, type, is_active")
+      .select("name, target_minutes, type, is_active, prayer_topic")
       .eq("id", projectId)
       .single();
 
@@ -59,6 +61,7 @@ export default function CommunalPrayerCup() {
     setProjectName(projData.name);
     setTargetMinutes(projData.target_minutes);
     setIsActive(projData.is_active);
+    setPrayerTopic(projData.prayer_topic || "");
 
     const { data: logsData } = await supabase
       .from("prayer_logs")
@@ -289,8 +292,8 @@ export default function CommunalPrayerCup() {
 
       <div className="max-w-sm w-full bg-white rounded-[2rem] shadow-sm border border-neutral-100 p-6 flex flex-col gap-6">
         <div className="flex justify-between items-start gap-4 relative">
-          <div className="space-y-1 flex-1 min-w-0">
-            <span className="text-xs font-bold text-purple-500 tracking-widest bg-purple-50 px-3 py-1 rounded-full inline-block mb-1">
+          <div className="space-y-2 flex-1 min-w-0">
+            <span className="text-xs font-bold text-purple-500 tracking-widest bg-purple-50 px-3 py-1 rounded-full inline-block">
               공동체 기도의 잔
             </span>
             <h1 className="text-2xl font-bold text-neutral-800 tracking-tight break-keep leading-tight">
@@ -310,6 +313,38 @@ export default function CommunalPrayerCup() {
             </button>
           )}
         </div>
+
+        {prayerTopic && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsPrayerTopicOpen(!isPrayerTopicOpen)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left"
+            >
+              <span className="text-sm font-bold text-blue-500 flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.5a7.5 7.5 0 01-7.5-7.5c0-4.14 5.3-10.3 6.64-11.75a1.15 1.15 0 011.72 0C14.2 3.7 19.5 9.86 19.5 14a7.5 7.5 0 01-7.5 7.5z" />
+                </svg>
+                기도제목
+              </span>
+              <svg
+                className={`w-4 h-4 text-blue-300 transition-transform duration-200 ${isPrayerTopicOpen ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {isPrayerTopicOpen && (
+              <div className="px-4 pb-4 border-t border-blue-100">
+                <p className="text-sm font-medium text-neutral-700 leading-6 whitespace-pre-wrap break-keep pt-3">
+                  {prayerTopic}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="relative w-48 h-64 mx-auto border-4 border-neutral-200 rounded-b-[2.5rem] rounded-t-lg overflow-hidden bg-neutral-50/50 shadow-inner">
           {isPouring && (

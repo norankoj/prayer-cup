@@ -12,6 +12,7 @@ type Project = {
   is_active: boolean;
   created_at: string;
   admin_key: string;
+  prayer_topic?: string;
 };
 
 export default function AdminPage() {
@@ -26,10 +27,12 @@ export default function AdminPage() {
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState("INDIVIDUAL");
   const [newTargetHours, setNewTargetHours] = useState(40);
+  const [newPrayerTopic, setNewPrayerTopic] = useState("");
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editTargetHours, setEditTargetHours] = useState(40);
+  const [editPrayerTopic, setEditPrayerTopic] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +82,7 @@ export default function AdminPage() {
         type: newType,
         target_minutes: targetMinutes,
         admin_key: adminKey,
+        prayer_topic: newPrayerTopic.trim() || null,
       },
     ]);
 
@@ -89,6 +93,7 @@ export default function AdminPage() {
       alert("새 프로젝트가 생성되었습니다!");
       setNewName("");
       setNewTargetHours(40);
+      setNewPrayerTopic("");
       fetchProjects();
     }
     setIsLoading(false);
@@ -99,6 +104,7 @@ export default function AdminPage() {
     setEditingId(project.id);
     setEditName(project.name);
     setEditTargetHours(project.target_minutes / 60);
+    setEditPrayerTopic(project.prayer_topic || "");
   };
 
   // 2. 수정 내용 저장하기
@@ -111,6 +117,7 @@ export default function AdminPage() {
       .update({
         name: editName,
         target_minutes: editTargetHours * 60,
+        prayer_topic: editPrayerTopic.trim() || null,
       })
       .eq("id", id);
 
@@ -251,6 +258,19 @@ export default function AdminPage() {
                 />
               </div>
 
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-gray-700 flex justify-between">
+                  기도제목
+                  <span className="text-xs font-normal text-gray-400">선택사항</span>
+                </label>
+                <textarea
+                  value={newPrayerTopic}
+                  onChange={(e) => setNewPrayerTopic(e.target.value)}
+                  placeholder="잔 페이지에 표시될 기도제목을 입력해주세요."
+                  className="w-full h-28 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800 bg-white resize-none"
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={isLoading}
@@ -310,6 +330,17 @@ export default function AdminPage() {
                               setEditTargetHours(Number(e.target.value))
                             }
                             className="w-full h-10 px-3 border border-blue-400 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800 bg-blue-50/30"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-500 font-semibold">
+                            기도제목 수정
+                          </label>
+                          <textarea
+                            value={editPrayerTopic}
+                            onChange={(e) => setEditPrayerTopic(e.target.value)}
+                            placeholder="기도제목을 입력해주세요."
+                            className="w-full h-24 p-3 border border-blue-400 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800 bg-blue-50/30 resize-none"
                           />
                         </div>
                         <div className="flex gap-2 pt-2">
