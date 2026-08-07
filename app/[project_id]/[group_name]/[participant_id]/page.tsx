@@ -589,7 +589,7 @@ export default function ParticipantPrayerCup() {
               )}
             </div>
             <button
-              onClick={() => setIsConfirmOpen(true)}
+              onClick={() => { setIsDropdownOpen(false); setIsConfirmOpen(true); }}
               disabled={isPouring || isModalOpen || isConfirmOpen}
               className="flex-1 h-12 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 active:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20"
             >
